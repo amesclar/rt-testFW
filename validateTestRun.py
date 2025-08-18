@@ -2,7 +2,7 @@
 #
 # assumes xml data file format similar to sampleTestResultsFile.xml
 #
-# usage: clear; python3 validateTestRun.py 
+# usage: clear; python3 validateTestRun.py
 #
 # reference - buzzer activation array from Arduino
 # const int buzzerOnLongMillis = 400;
@@ -30,7 +30,7 @@
 
 import xml.etree.ElementTree as ET
 import pandas as pd
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 def load_buzzer_list(xml_dom):
     buzzer_list = []
@@ -47,8 +47,7 @@ def log_df(msg, df):
 # *** main starts here ***
 #
 
-# test_data_xml = 'test_result_samples/one_min.txt'
-test_data_xml = 'test_result_samples/test_run_20250425-171140.txt'
+test_data_xml = 'test_result_samples/one_min.txt'
 tree = ET.parse(test_data_xml)
 root = tree.getroot()
 # print(root.tag)
@@ -91,7 +90,6 @@ log_df('df_1min_diff',df_1min_diff)
 # df_1min_diff_plot.columns = ['p1','p2','p3','p4','p5','p6','p7','p8','p9','p10','p11','p12']
 # log_df('df_1min_diff_plot',df_1min_diff_plot)
 # df_1min_diff_plot.plot(use_index = True)
-# plt.show()
 
 # log_df('two_min_buzzer',two_min_buzzer)
 # log_df('df_2min',df_2min)
