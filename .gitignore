@@ -1,0 +1,5 @@
+_pycache_*
+*pyc
+fp-info-cache
+test-data/
+rt-testFW-backups*

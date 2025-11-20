@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Tests id="0">
+    <Test which="1min" id="13900" />
+    <Test which="3min" id="203900" />
+    <Test which="5min" id="388900" />
+</Tests>
