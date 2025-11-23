@@ -16,6 +16,14 @@ const int ledPin = 4;            // the number of the LED pin
 const int buzzerOnLongMillis = 400;
 const int buzzerOnShortMillis = 200;
 
+int doTest = 0;  // 0/1 instead of boolean to support log message out
+int const loopMax = 5;
+int loopCurrent = 0;
+int testCurrent = 1;
+float interval;
+unsigned long currentMillis = 0;
+unsigned long testEndMillis = 0;
+
 void setup() {
   // initialize the LED pin as an output:
   pinMode(ledPin, OUTPUT);
@@ -34,6 +42,19 @@ void setup() {
 bool logMsg(String msg) {
   Serial.println(msg);
   return true;
+}
+
+String buildTestLogMsg(int testId, String which, unsigned long ticks){
+  String testLogMsg = "<Test testId=\"";
+  testLogMsg += String(testId);
+  testLogMsg += "\"";
+  testLogMsg += " which=\"";
+  testLogMsg += which + "\"";
+  testLogMsg += " ticks=\"";
+  testLogMsg += String(ticks); // Concatenate the dynamic time value
+  testLogMsg += "\"/>  ";
+
+  return (testLogMsg);
 }
 
 bool debugInfo(int doTest, int loopCurrent, unsigned long currentMillis, unsigned long testEndMillis, int testCurrent) {
@@ -61,21 +82,11 @@ bool ledBlink(int ledPin, int delayMS = 500) {
   return true;
 }
 
-int doTest = 0;  // 0/1 instead of boolean to support log message out
-int const loopMax = 2;
-int loopCurrent = 0;
-int testCurrent = 1;
-float interval;
-unsigned long currentMillis = 0;
-unsigned long testEndMillis = 0;
-
-
 void loop() {
 
   // if (digitalRead(buzzerVoltagePin)) { logMsg("<Buzzer>" + String(millis()) + "</Buzzer>"); }
 
   if (digitalRead(testStartPin) == LOW) {
-    logMsg("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
     doTest = 1;
     ledBlink(ledPin, 500);
   }
@@ -89,8 +100,7 @@ void loop() {
     if (testCurrent == 1) {
       // 1min
       testEndMillis = millis() + (60.0 * 1000.0) + 5000.0;
-      logMsg("<Tests id=\"" + String(loopCurrent) + "\">");
-      logMsg("<Test which=\"1min\" id="\" + String(millis()) + "\"/>  ");
+      logMsg(buildTestLogMsg(loopCurrent, "1min", millis()));
       ledBlink(ledPin, 500);
       buttonPress(buttonPinTimer1);
       doTest = 1;
@@ -99,7 +109,7 @@ void loop() {
     } else if (testCurrent == 2) {
       // 2min
       testEndMillis = millis() + (120.0 * 1000.0) + 5000.0;
-      logMsg("<Test which=\"2min\" id=\"" + String(millis()) + "\"/>  ");
+      logMsg(buildTestLogMsg(loopCurrent, "2min", millis()));
       ledBlink(ledPin, 500);
       buttonPress(buttonPinTimer2);
       doTest = 1;
@@ -108,7 +118,7 @@ void loop() {
     } else if (testCurrent == 3) {
       // 3min
       testEndMillis = millis() + (180.0 * 1000.0) + 5000.0;
-      logMsg("<Test which=\"3min\" id=\"" + String(millis()) + "\"/>  ");
+      logMsg(buildTestLogMsg(loopCurrent, "3min", millis()));
       ledBlink(ledPin, 500);
       buttonPress(buttonPinTimer3);
       doTest = 1;
@@ -117,8 +127,7 @@ void loop() {
     } else if (testCurrent == 4) {
       // 5min
       testEndMillis = millis() + (300.0 * 1000.0) + 5000.0;
-      logMsg("<Test which=\"5min\" id=\"" + String(millis()) + "\"/>  ");
-      logMsg("</Tests>");
+      logMsg(buildTestLogMsg(loopCurrent, "5min", millis()));
       ledBlink(ledPin, 500);
       buttonPress(buttonPinTimer5);
       doTest = 1;
