@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Tests>
+<Test testId="0" which="1min" ticks="11939"/>
+<Test testId="0" which="2min" ticks="76939"/>
+<Test testId="0" which="3min" ticks="201939"/>
+<Test testId="0" which="5min" ticks="386939"/>
+<Test testId="1" which="1min" ticks="691939"/>
+<Test testId="1" which="2min" ticks="756939"/>
+<Test testId="1" which="3min" ticks="881939"/>
+<Test testId="1" which="5min" ticks="1066939"/>
+<Test testId="2" which="1min" ticks="1371939"/>
+<Test testId="2" which="2min" ticks="1436939"/>
+<Test testId="2" which="3min" ticks="1561939"/>
+<Test testId="2" which="5min" ticks="1746939"/>
+<Test testId="3" which="1min" ticks="2051939"/>
+<Test testId="3" which="2min" ticks="2116939"/>
+<Test testId="3" which="3min" ticks="2241939"/>
+<Test testId="3" which="5min" ticks="2426939"/>
+<Test testId="4" which="1min" ticks="2731939"/>
+<Test testId="4" which="2min" ticks="2796939"/>
+<Test testId="4" which="3min" ticks="2921939"/>
+<Test testId="4" which="5min" ticks="3106939"/>
+<Test testId="5" which="1min" ticks="3411939"/>
+<Test testId="5" which="2min" ticks="3476939"/>
+<Test testId="5" which="3min" ticks="3601939"/>
+<Test testId="5" which="5min" ticks="3786939"/>
+</Tests>

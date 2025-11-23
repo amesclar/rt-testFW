@@ -1,16 +1,31 @@
-FROM python:3.9.19-slim-bullseye
-# FROM alpine:3.20
-# FROM python:3.9
+# Use the newer, lightweight official Python image
+FROM python:3.11-slim
 
-RUN useradd -ms /bin/bash cfa
-USER cfa
-WORKDIR /home/cfa
+# Create a non-root user to run the application for security.
+# 'useradd -m' creates a home directory specifically for this user.
+RUN useradd -m -s /bin/bash cfa
 
-COPY . /app
-
+# Set the working directory inside the container
 WORKDIR /app
 
-RUN pip install --upgrade pip && pip install -r requirements.txt
+# Copy requirements.txt FIRST. This allows Docker to cache the dependency layer
+# so pip install only re-runs if requirements.txt changes.
+COPY requirements.txt .
 
-# CMD ["python", "app.py"]
-# CMD pwd
+# Install dependencies.
+# We install as root *before* switching users so packages go into system-wide paths easily.
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# --- Application Setup ---
+# Copy the rest of the application code into the container.
+# IMPORTANT: We use '--chown=cfa:cfa' to ensure the non-root user created above
+# has ownership permissions over the application files.
+COPY --chown=cfa:cfa . .
+
+# Switch to the non-root user defined earlier so the app doesn't run as root.
+USER cfa
+
+# Command to run the Python script when the container starts (from File 1)
+# Make sure 'serial_monitor.py' exists in your project root.
+# CMD ["python", "serial_monitor.py"]
