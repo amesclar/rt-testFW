@@ -16,11 +16,14 @@
 
 # Request
 
-please help me write a python program that compares expected results to actual results for timer sequence xml files and know timing sequences
+please create a python program that compares expected results to actual results for timer sequence xml files and know timing sequences the pass/fail output should be human readable with the option to produce junit compatible format
 
-# Expected results file
-+ initiation of timer sequences: which = 1min, 2min, 3min, 5min
-+ id = timer ticks at sequence start
+the junit output should cover all validation checks and wrap JSON inside a CDATA section
+
+# Expected results file attributes
++ testId = current test iteration
++ which = 1min, 2min, 3min, 5min
++ ticks = timer ticks
 
 # Actual results file
 + timer sequence bracketed by "sequence start" and "sequence_end"

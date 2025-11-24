@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 #
-# usage: use run-validation.sh wrapper script
+# usage: run-validation.sh or manual CLI:
+#   python3 data-validation-ai-python.py --expected exp.xml --actual act.xml --junit report.xml
 #
+
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from collections import defaultdict
@@ -10,12 +12,11 @@ import argparse
 import sys
 from typing import List, Dict
 import pandas as pd
+import xml.dom.minidom as minidom
 
 # ---------------------------------------------------------------------
-# CONFIGURATION (Buzzer duration validation constants removed)
+# CONFIGURATION
 # ---------------------------------------------------------------------
-
-# TICK_TOLERANCE and EXPECTED_BUZZER_DURATION removed
 
 EXPECTED_ACTIVATIONS = {
     "1min": {0: (1,0),30:(0,3),40:(0,2),50:(0,1),55:(0,1),56:(0,1),
@@ -32,11 +33,12 @@ SEQUENCE_MAP = {"1": "1min", "2": "2min", "3": "3min", "5": "5min"}
 # ---------------------------------------------------------------------
 # DATA CLASSES
 # ---------------------------------------------------------------------
+
 @dataclass
 class BuzzEvent:
     second: int
     tick: int
-    type: str  # "long" or "short"
+    type: str  # long/short
 
 @dataclass
 class Sequence:
@@ -48,12 +50,12 @@ class Sequence:
 # ---------------------------------------------------------------------
 # PARSERS
 # ---------------------------------------------------------------------
+
 def parse_expected_results(path: str) -> List[Dict]:
     try:
         tree = ET.parse(path)
     except ET.ParseError as e:
-        sys.exit(f"Error parsing >>> " + path + " <<< expected results XML: {e}")
-        # sys.exit(f"Error parsing expected results XML: {e}")
+        sys.exit(f"Error parsing >>> {path} <<< expected results XML: {e}")
     root = tree.getroot()
     tests = []
     for t in root.findall("Test"):
@@ -68,14 +70,17 @@ def parse_expected_results(path: str) -> List[Dict]:
         tests.append({"which": which, "test_id": int(test_id)})
     return tests
 
+
 def parse_actual_results(path: str) -> List[Sequence]:
     try:
         tree = ET.parse(path)
     except ET.ParseError as e:
-        sys.exit(f"Error parsing >>> " + path + " <<< actual results XML: {e}")
+        sys.exit(f"Error parsing >>> {path} <<< actual results XML: {e}")
+
     root = tree.getroot()
     sequences: List[Sequence] = []
-    current_seq: Sequence = None
+    current_seq = None
+
     for ev in root.findall("event"):
         tag = ev.get("tag")
         try:
@@ -84,29 +89,34 @@ def parse_actual_results(path: str) -> List[Sequence]:
         except (TypeError, ValueError):
             print(f"Warning: event missing numeric attributes: {ET.tostring(ev)}")
             continue
+
         if tag == "sequence_start":
             if str(sec) not in SEQUENCE_MAP:
                 print(f"Warning: unknown sequence second '{sec}'")
                 continue
             current_seq = Sequence(which=SEQUENCE_MAP[str(sec)], start_tick=tick)
             sequences.append(current_seq)
+
         elif tag == "sequence_end":
             if current_seq:
                 current_seq.end_tick = tick
                 current_seq = None
             else:
                 print(f"Warning: sequence_end without start at tick {tick}")
+
         elif tag.startswith("buzz_"):
             if current_seq is None:
                 print(f"Warning: buzz event outside sequence at tick {tick}")
                 continue
             buzz_type = "long" if tag == "buzz_long" else "short"
             current_seq.events.append(BuzzEvent(second=sec, tick=tick, type=buzz_type))
+
     return sequences
 
 # ---------------------------------------------------------------------
 # VALIDATORS
 # ---------------------------------------------------------------------
+
 def validate_sequence_counts(expected, actual):
     exp_count = defaultdict(int)
     act_count = defaultdict(int)
@@ -123,60 +133,118 @@ def validate_buzzer_counts(seq: Sequence):
     which = seq.which
     expected = EXPECTED_ACTIVATIONS[which]
     actual_counts = defaultdict(lambda: {"long": 0, "short": 0})
+
     for ev in seq.events:
         actual_counts[ev.second][ev.type] += 1
+
     errors = []
     for sec, (exp_long, exp_short) in expected.items():
         a_long = actual_counts[sec]["long"]
         a_short = actual_counts[sec]["short"]
         if a_long != exp_long or a_short != exp_short:
-            errors.append({"second": sec, "expected": (exp_long, exp_short), "actual": (a_long, a_short)})
+            errors.append({
+                "second": sec,
+                "expected": (exp_long, exp_short),
+                "actual": (a_long, a_short)
+            })
     return errors
 
-# validate_buzzer_durations function removed
+# ---------------------------------------------------------------------
+# JUNIT GENERATOR
+# ---------------------------------------------------------------------
+
+def generate_junit_xml(report: Dict) -> str:
+    def add_failure(parent, message, payload_dict):
+        tc = ET.SubElement(parent, "testcase", {"name": message})
+        fail = ET.SubElement(tc, "failure", {"message": message})
+
+        # Add CDATA wrapper manually — ElementTree does NOT support CDATA natively
+        json_text = json.dumps(payload_dict, indent=4)
+
+        fail.text = f"<![CDATA[\n{json_text}\n]]>"
+
+    root = ET.Element("testsuite", {
+        "name": "SailingTimerValidation",
+        "tests": str(len(report["sequences"]) + 2),
+        "failures": str(report["summary"]["failed_sequences"])
+    })
+
+    # --- Test 1: Sequence count validation ---
+    tc1 = ET.SubElement(root, "testcase", {"name": "SequenceCountValidation"})
+    if report["counts"]["expected"] != report["counts"]["actual"]:
+        f = ET.SubElement(tc1, "failure", {"message": "Sequence counts mismatch"})
+        json_text = json.dumps(report["counts"], indent=4)
+        f.text = f"<![CDATA[\n{json_text}\n]]>"
+
+    # --- Test 2: Sequence order validation ---
+    tc2 = ET.SubElement(root, "testcase", {"name": "SequenceOrderValidation"})
+    if report["sequence_order"]["expected"] != report["sequence_order"]["actual"]:
+        f = ET.SubElement(tc2, "failure", {"message": "Sequence order mismatch"})
+        json_text = json.dumps(report["sequence_order"], indent=4)
+        f.text = f"<![CDATA[\n{json_text}\n]]>"
+
+    # --- Per sequence buzzer validation ---
+    for seq in report["sequences"]:
+        tc = ET.SubElement(root, "testcase", {
+            "name": f"Sequence_{seq['which']}",
+            "classname": "BuzzerCounts"
+        })
+        if seq["buzzer_count_errors"]:
+            f = ET.SubElement(tc, "failure", {"message": "Buzzer count errors"})
+            json_text = json.dumps(seq["buzzer_count_errors"], indent=4)
+            f.text = f"<![CDATA[\n{json_text}\n]]>"
+
+    xml_str = ET.tostring(root, encoding="utf-8")
+    return minidom.parseString(xml_str).toprettyxml(indent="  ")
 
 # ---------------------------------------------------------------------
-# REPORT GENERATION
+# REPORT GENERATION / MAIN VALIDATION
 # ---------------------------------------------------------------------
+
 def validate(expected_path, actual_path, to_dataframe=False):
     expected = parse_expected_results(expected_path)
     actual = parse_actual_results(actual_path)
+
     report = {}
     report["counts"] = validate_sequence_counts(expected, actual)
     report["sequence_order"] = validate_sequence_order(expected, actual)
+
     seq_reports = []
     passed_sequences = 0
+
     for seq in actual:
         buzzer_count_errors = validate_buzzer_counts(seq)
-        # buzzer_duration_errors validation call removed
-
-        # Pass/Fail logic updated to only check count errors
         passed = (len(buzzer_count_errors) == 0)
-        if passed: passed_sequences += 1
+        if passed:
+            passed_sequences += 1
 
         seq_reports.append({
             "which": seq.which,
             "start_tick": seq.start_tick,
             "end_tick": seq.end_tick,
             "buzzer_count_errors": buzzer_count_errors,
-            # "buzzer_duration_errors" key removed
             "pass": passed
         })
+
     report["sequences"] = seq_reports
     report["summary"] = {
         "total_sequences": len(actual),
         "passed_sequences": passed_sequences,
         "failed_sequences": len(actual) - passed_sequences
     }
-    # Optional Pandas export updated
+
     if to_dataframe:
         rows = []
         for s in seq_reports:
             for e in s["buzzer_count_errors"]:
                 rows.append({**e, "which": s["which"], "type": "count_error"})
-            # Duration error export loop removed
         report["df"] = pd.DataFrame(rows)
+
     return report
+
+# ---------------------------------------------------------------------
+# PRINT REPORT (HUMAN)
+# ---------------------------------------------------------------------
 
 def print_report(report):
     print("\n=== Validation Summary ===")
@@ -190,8 +258,9 @@ def print_report(report):
     else:
         print("FAIL: test counts do not match")
         print(json.dumps(report["counts"], indent=4))
-        print("\nSequence order comparison:")
-        print(json.dumps(report["sequence_order"], indent=4))
+
+    print("\nSequence order comparison:")
+    print(json.dumps(report["sequence_order"], indent=4))
 
     print("\nDetailed sequence reports:")
     for s in report["sequences"]:
@@ -201,25 +270,35 @@ def print_report(report):
             print("  Buzzer count errors:")
             for e in s["buzzer_count_errors"]:
                 print(f"    {e}")
-        # Buzzer duration error printing removed
 
 # ---------------------------------------------------------------------
-# CLI ENTRY
+# CLI
 # ---------------------------------------------------------------------
+
 def main():
     parser = argparse.ArgumentParser(description="Validate sailing timer XML logs.")
     parser.add_argument("--expected", required=True, help="Expected XML file path")
     parser.add_argument("--actual", required=True, help="Actual XML file path")
     parser.add_argument("--df", action="store_true", help="Generate Pandas dataframe of errors")
+    parser.add_argument("--junit", help="Output JUnit XML file")
     args = parser.parse_args()
+
     report = validate(args.expected, args.actual, to_dataframe=args.df)
+
     print_report(report)
+
+    if args.junit:
+        xml_output = generate_junit_xml(report)
+        with open(args.junit, "w") as f:
+            f.write(xml_output)
+        print(f"\nJUnit XML written to: {args.junit}")
+
     if args.df:
         if "df" in report:
             print("\nDataFrame preview:")
             print(report["df"].head())
         else:
-             print("\nDataFrame not generated (no errors found or --df flag not used).")
+            print("\nDataFrame not generated (no errors found or --df flag not used).")
 
 if __name__ == "__main__":
     main()

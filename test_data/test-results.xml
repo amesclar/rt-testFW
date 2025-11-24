@@ -1,0 +1,29 @@
+<?xml version="1.0" ?>
+<testsuite name="SailingTimerValidation" tests="26" failures="0">
+  <testcase name="SequenceCountValidation"/>
+  <testcase name="SequenceOrderValidation"/>
+  <testcase name="Sequence_1min" classname="BuzzerCounts"/>
+  <testcase name="Sequence_2min" classname="BuzzerCounts"/>
+  <testcase name="Sequence_3min" classname="BuzzerCounts"/>
+  <testcase name="Sequence_5min" classname="BuzzerCounts"/>
+  <testcase name="Sequence_1min" classname="BuzzerCounts"/>
+  <testcase name="Sequence_2min" classname="BuzzerCounts"/>
+  <testcase name="Sequence_3min" classname="BuzzerCounts"/>
+  <testcase name="Sequence_5min" classname="BuzzerCounts"/>
+  <testcase name="Sequence_1min" classname="BuzzerCounts"/>
+  <testcase name="Sequence_2min" classname="BuzzerCounts"/>
+  <testcase name="Sequence_3min" classname="BuzzerCounts"/>
+  <testcase name="Sequence_5min" classname="BuzzerCounts"/>
+  <testcase name="Sequence_1min" classname="BuzzerCounts"/>
+  <testcase name="Sequence_2min" classname="BuzzerCounts"/>
+  <testcase name="Sequence_3min" classname="BuzzerCounts"/>
+  <testcase name="Sequence_5min" classname="BuzzerCounts"/>
+  <testcase name="Sequence_1min" classname="BuzzerCounts"/>
+  <testcase name="Sequence_2min" classname="BuzzerCounts"/>
+  <testcase name="Sequence_3min" classname="BuzzerCounts"/>
+  <testcase name="Sequence_5min" classname="BuzzerCounts"/>
+  <testcase name="Sequence_1min" classname="BuzzerCounts"/>
+  <testcase name="Sequence_2min" classname="BuzzerCounts"/>
+  <testcase name="Sequence_3min" classname="BuzzerCounts"/>
+  <testcase name="Sequence_5min" classname="BuzzerCounts"/>
+</testsuite>
