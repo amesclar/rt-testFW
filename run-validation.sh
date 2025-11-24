@@ -30,5 +30,5 @@ else
 fi
 
 
-python data-validation-ai-python.py --expected "$FW_XML" --actual "$RT_XML" --df
+python data-validation-ai-python.py --expected "$FW_XML" --actual "$RT_XML" --df --junit test-results.xml
 # python data-validation-ai-python.py --expected "$FW_XML" --actual "$RT_XML" --df  > cfa.txt ; egrep FAIL cfa.txt
