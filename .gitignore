@@ -1,4 +1,10 @@
+.DS_Store
 _pycache_*
+*auto_saved_files*
+*lck
 *pyc
+*zip
+*cfa*
 fp-info-cache
 rt-testFW-backups*
+test_data

@@ -1,24 +1,42 @@
-flowchart TB
-    A[Start i=1] --> B(1Min)
-    A -- Loop i --> H[Message Out]
-    K --> H[Message Out]
-    B -- 1Min --> K[Start Message]
-    B --> L[End Message]
-    L --> H
-    B -- Wait-5sec --> C[2Min]
-    C -- 2Min --> K
-    C --> L
-    C -- Wait-5sec --> D[3Min]
-    D -- 3Min --> K
-    D --> L
-    D -- Wait-5sec --> E[5Min]
-    E -- 5Min --> K
-    E --> L
-    E --> F{i = Loop Count}
-    F -- No --> J[++i]
-    J --> A
-    A --> I{Buzzer = HIGH}
-    F -- Yes Loop End --> H
-    F -- Yes --> G[Exit]
-    I -- No --> I
-    I -- Yes Buzzer --> H
+stateDiagram-v2
+    direction LR
+
+    state Initial {
+        direction LR
+        S_START: Ready State / Loop()
+        S_BTN_PRESS: BTN_TEST_INITIATE_PIN LOW
+        S_START --> S_BTN_PRESS : Button Press (Not running)
+        S_BTN_PRESS --> S_AUTOCYCLE_INIT : startAutoCycle()
+    }
+
+    subgraph AutoCycle [Test Auto Cycle (TEST_CYCLE_REPEAT)]
+        direction TB
+
+        S_AUTOCYCLE_INIT: Start AutoCycle (Iteration 1)
+        
+        state Sequence {
+            direction LR
+            S_TEST_SEQUENCE_START: Start Test (1, 2, 3, or 5 Min)
+            S_TEST_RUNNING: updateRunningTest()
+            S_TEST_RUNNING --> S_TEST_RUNNING : Time passes (updateDisplay)
+            S_TEST_SEQUENCE_START --> S_TEST_RUNNING : simulateButtonPulse()
+            S_TEST_RUNNING --> S_TEST_END : Elapsed Seconds >= Target
+            S_TEST_END: endTest() / Log End
+        }
+
+        S_AUTOCYCLE_INIT --> S_TEST_SEQUENCE_START : Start Step 1 (1 min)
+
+        S_TEST_END --> S_WAIT_BETWEEN_TESTS : autoCycleWaiting = true
+
+        S_WAIT_BETWEEN_TESTS: Wait 5 Seconds (WAIT_BETWEEN_TESTS_MS)
+        S_WAIT_BETWEEN_TESTS --> S_TEST_SEQUENCE_START : Wait done & Step < numTestSteps (Next Step)
+
+        S_WAIT_BETWEEN_TESTS --> S_SEQUENCE_COMPLETE : Wait done & Step == numTestSteps (4 tests done)
+        S_SEQUENCE_COMPLETE: Sequence Complete / Log Sequence
+
+        S_SEQUENCE_COMPLETE --> S_TEST_SEQUENCE_START : currentCycleIteration < REPEAT (Start Next Iteration)
+        S_SEQUENCE_COMPLETE --> S_AUTOCYCLE_END : currentCycleIteration == REPEAT (All Done)
+    end
+
+    S_AUTOCYCLE_END: End AutoCycle / Log Testsuite
+    AutoCycle --> S_START
