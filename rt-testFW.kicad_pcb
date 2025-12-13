@@ -4287,6 +4287,18 @@
 			)
 		)
 	)
+	(gr_text "Regatta Timer\nTest Framework v0.5.0"
+		(at 170 96.5 90)
+		(layer "F.SilkS")
+		(uuid "d052ad4f-5444-49cb-9e33-bb53ebff0522")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+			(justify bottom)
+		)
+	)
 	(gr_text "IOR"
 		(at 196.85 78.74 0)
 		(layer "F.SilkS")
