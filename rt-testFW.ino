@@ -32,7 +32,7 @@
   10 // Minimum duration for logging a voltage event
 
 // Test Timing Configuration
-#define TEST_CYCLE_REPEAT 10       // Total iterations of the 4-test sequence
+#define TEST_CYCLE_REPEAT 100       // Total iterations of the 4-test sequence
 #define WAIT_BETWEEN_TESTS_MS 5000 // 5 seconds
 #define BUTTON_PULSE_DURATION_MS                                               \
   200 // Duration to hold output low to simulate press
