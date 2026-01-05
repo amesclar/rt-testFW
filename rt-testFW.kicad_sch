@@ -3214,7 +3214,7 @@
 				(hide yes)
 			)
 		)
-		(property "Footprint" "Module:Arduino_UNO_R3"
+		(property "Footprint" "KiCad-Library:Arduino_UNO_R3"
 			(at 148.59 119.38 0)
 			(effects
 				(font

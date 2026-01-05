@@ -6,5 +6,6 @@ _pycache_*
 *zip
 *cfa*
 fp-info-cache
+fp-lib-table
 rt-testFW-backups*
 test_data
