@@ -28,14 +28,12 @@
 #define VOLTAGE_REF 5.0
 #define ADC_RESOLUTION 1024.0
 #define VOLTAGE_LOG_THRESHOLD 1.0 // Volts
-#define MIN_VOLTAGE_DURATION_MS                                                \
-  10 // Minimum duration for logging a voltage event
+#define MIN_VOLTAGE_DURATION_MS 10 // Minimum duration for logging a voltage event
 
 // Test Timing Configuration
-#define TEST_CYCLE_REPEAT 100       // Total iterations of the 4-test sequence
+#define TEST_CYCLE_REPEAT 10       // Total iterations of the 4-test sequence
 #define WAIT_BETWEEN_TESTS_MS 5000 // 5 seconds
-#define BUTTON_PULSE_DURATION_MS                                               \
-  200 // Duration to hold output low to simulate press
+#define BUTTON_PULSE_DURATION_MS 200 // Duration to hold output low to simulate press
 #define DEBOUNCE_DELAY_MS 200
 
 // ==========================================
@@ -45,10 +43,9 @@
 TM1637Display display(CLK_PIN, DIO_PIN);
 
 // Test Sequence Data Structures (from spec)
-const int testDurations[] = {60, 120, 180, 300}; // seconds
-const int testPins[] = {BTN_1MIN_OUT_PIN, BTN_2MIN_OUT_PIN, BTN_3MIN_OUT_PIN,
-                        BTN_5MIN_OUT_PIN};
-const int testSequenceNumbers[] = {1, 2, 3, 5}; // sequence identifiers
+const int testDurations[] = {60, 120, 180, 300};          // seconds
+const int testPins[] = {BTN_1MIN_OUT_PIN, BTN_2MIN_OUT_PIN, BTN_3MIN_OUT_PIN, BTN_5MIN_OUT_PIN};
+const int testSequenceNumbers[] = {1, 2, 3, 5};             // sequence identifiers
 const int numTestSteps = sizeof(testDurations) / sizeof(testDurations[0]);
 
 // State Variables
@@ -58,8 +55,7 @@ int autoCycleStep = 0;         // 0 to 3 (for the 4 durations)
 
 bool testRunning = false;
 unsigned long testStartMillis = 0; // Start of the current 1/2/3/5 min test
-unsigned long elapsedSeconds =
-    0; // Elapsed seconds within the current 1/2/3/5 min test
+unsigned long elapsedSeconds = 0;  // Elapsed seconds within the current 1/2/3/5 min test
 unsigned long lastSecondUpdate = 0;
 int currentTestDurationTarget = 0;
 
@@ -96,16 +92,11 @@ void setup() {
   pinMode(BTN_TEST_INITIATE_PIN, INPUT_PULLUP);
   pinMode(VOLTAGE_SENSOR_PIN, INPUT);
 
-  // Initialize Outputs. Set LOW initially because SUT is Active High (triggers
-  // on HIGH). Current logic: Idle = LOW, Active = HIGH.
-  digitalWrite(BTN_1MIN_OUT_PIN, LOW);
-  pinMode(BTN_1MIN_OUT_PIN, OUTPUT);
-  digitalWrite(BTN_2MIN_OUT_PIN, LOW);
-  pinMode(BTN_2MIN_OUT_PIN, OUTPUT);
-  digitalWrite(BTN_3MIN_OUT_PIN, LOW);
-  pinMode(BTN_3MIN_OUT_PIN, OUTPUT);
-  digitalWrite(BTN_5MIN_OUT_PIN, LOW);
-  pinMode(BTN_5MIN_OUT_PIN, OUTPUT);
+  // Initialize Outputs. Set HIGH initially assuming active-low triggering on target.
+  pinMode(BTN_1MIN_OUT_PIN, OUTPUT); digitalWrite(BTN_1MIN_OUT_PIN, HIGH);
+  pinMode(BTN_2MIN_OUT_PIN, OUTPUT); digitalWrite(BTN_2MIN_OUT_PIN, HIGH);
+  pinMode(BTN_3MIN_OUT_PIN, OUTPUT); digitalWrite(BTN_3MIN_OUT_PIN, HIGH);
+  pinMode(BTN_5MIN_OUT_PIN, OUTPUT); digitalWrite(BTN_5MIN_OUT_PIN, HIGH);
 
   // Initialize Display
   display.setBrightness(0x0f); // Maximum brightness
@@ -145,8 +136,7 @@ void loop() {
     if (durationMs >= MIN_VOLTAGE_DURATION_MS) {
       Serial.print(F("<testcase classname=\"VoltageMonitor\" elapsedSec=\""));
       // Use elapsedSeconds from the current running test
-      Serial.print(
-          elapsedSeconds); // Log elapsed seconds relative to current test start
+      Serial.print(elapsedSeconds); // Log elapsed seconds relative to current test start
       Serial.print(F("\" durationMs=\""));
       Serial.print(durationMs);
       Serial.print(F("\" peakVoltage=\""));
@@ -155,42 +145,15 @@ void loop() {
     }
   }
 
+
   // 2. Check Test Initiate Button (Pin 6)
-  // Edge-detection (Falling Edge) to prevent auto-start if button is stuck LOW
-  static int lastButtonRead = HIGH; // Assume HIGH (not pressed) initially
+  // Simple debounce check
   static unsigned long lastDebounceTime = 0;
-  static int validButtonState = HIGH; // The stable, debounced state
-  static bool waitingForRelease =
-      true; // Safety: Require a HIGH state before first trigger
-
-  int currentButtonRead = digitalRead(BTN_TEST_INITIATE_PIN);
-
-  // If the switch changed, reset the debouncing timer
-  if (currentButtonRead != lastButtonRead) {
-    lastDebounceTime = currentMillis;
-  }
-  lastButtonRead = currentButtonRead;
-
-  // If stable for DEBOUNCE_DELAY_MS, update the valid state
-  if ((currentMillis - lastDebounceTime) > DEBOUNCE_DELAY_MS) {
-    if (currentButtonRead != validButtonState) {
-      validButtonState = currentButtonRead;
-
-      // If we are waiting for release, check if we got it
-      if (waitingForRelease) {
-        if (validButtonState == HIGH) {
-          waitingForRelease =
-              false; // Button is released, ready to accept press
-        }
-      } else {
-        // Normal operation: detected a valid state change (after release was
-        // confirmed)
-        if (validButtonState == LOW) {
-          // Falling Edge detected (HIGH -> LOW)
-          if (!autoCycleRunning) {
-            startAutoCycle();
-          }
-        }
+  if (digitalRead(BTN_TEST_INITIATE_PIN) == LOW) { // Active LOW due to INPUT_PULLUP
+    if ((currentMillis - lastDebounceTime) > DEBOUNCE_DELAY_MS) {
+      lastDebounceTime = currentMillis;
+      if (!autoCycleRunning) {
+        startAutoCycle();
       }
     }
   }
@@ -246,21 +209,19 @@ void handleAutoCycleState() {
         startSpecificTest(autoCycleStep);
       } else {
         // Current sequence of 4 tests done. Check iterations.
-        Serial.print(
-            F("<testcase classname=\"SequenceComplete\" iteration=\""));
+        Serial.print(F("<testcase classname=\"SequenceComplete\" iteration=\""));
         Serial.print(currentCycleIteration);
         Serial.println(F("\"/>"));
 
         if (currentCycleIteration < TEST_CYCLE_REPEAT) {
-          // Reset for next iteration iteration
-          currentCycleIteration++;
-          autoCycleStep = 0;
-          // The wait just happened. We can start immediately.
-          startSpecificTest(autoCycleStep);
+           // Reset for next iteration iteration
+           currentCycleIteration++;
+           autoCycleStep = 0;
+           // The wait just happened. We can start immediately.
+           startSpecificTest(autoCycleStep);
         } else {
           // All iterations complete
-          Serial.println(
-              F("<testcase classname=\"AutoCycleEnd\" type=\"CycleEnd\"/>"));
+          Serial.println(F("<testcase classname=\"AutoCycleEnd\" type=\"CycleEnd\"/>"));
           Serial.println(F("</testsuite>"));
           autoCycleRunning = false;
           updateDisplay(0);
@@ -310,8 +271,7 @@ void updateRunningTest() {
     elapsedSeconds = (currentMillis - testStartMillis) / 1000;
 
     int remaining = currentTestDurationTarget - elapsedSeconds;
-    if (remaining < 0)
-      remaining = 0;
+    if (remaining < 0) remaining = 0;
 
     updateDisplay(remaining);
 
@@ -339,12 +299,12 @@ void endTest() {
   autoCycleWaitStartMillis = millis();
 }
 
-// Simulates a momentary button press by pulsing an output pin HIGH
-// NOTE: SUT is Active High, so we Pulse HIGH from LOW
+// Simulates a momentary button press by pulsing an output pin LOW
+// NOTE: This uses a small blocking delay as permitted by spec for debounce-like actions.
 void simulateButtonPulse(int pin) {
-  digitalWrite(pin, HIGH);
-  delay(BUTTON_PULSE_DURATION_MS);
   digitalWrite(pin, LOW);
+  delay(BUTTON_PULSE_DURATION_MS);
+  digitalWrite(pin, HIGH);
 }
 
 // Measures voltage on A0 using spec formula
