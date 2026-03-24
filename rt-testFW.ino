@@ -32,11 +32,11 @@
   10 // Minimum duration for logging a voltage event
 
 // Test Timing Configuration
-#define TEST_CYCLE_REPEAT 100       // Total iterations of the 4-test sequence
+#define TEST_CYCLE_REPEAT 100      // Total iterations of the 4-test sequence
 #define WAIT_BETWEEN_TESTS_MS 5000 // 5 seconds
 #define BUTTON_PULSE_DURATION_MS                                               \
-  200 // Duration to hold output low to simulate press
-#define DEBOUNCE_DELAY_MS 200
+  400 // Duration to hold output low to simulate press
+#define DEBOUNCE_DELAY_MS 50
 
 // ==========================================
 // Global Objects and Variables
@@ -96,15 +96,15 @@ void setup() {
   pinMode(BTN_TEST_INITIATE_PIN, INPUT_PULLUP);
   pinMode(VOLTAGE_SENSOR_PIN, INPUT);
 
-  // Initialize Outputs. Set LOW initially because SUT is Active High (triggers
-  // on HIGH). Current logic: Idle = LOW, Active = HIGH.
-  digitalWrite(BTN_1MIN_OUT_PIN, LOW);
+  // Initialize Outputs. Set HIGH initially because SUT is Active LOW (triggers
+  // on LOW with internal pull-ups). Current logic: Idle = HIGH, Active = LOW.
+  digitalWrite(BTN_1MIN_OUT_PIN, HIGH);
   pinMode(BTN_1MIN_OUT_PIN, OUTPUT);
-  digitalWrite(BTN_2MIN_OUT_PIN, LOW);
+  digitalWrite(BTN_2MIN_OUT_PIN, HIGH);
   pinMode(BTN_2MIN_OUT_PIN, OUTPUT);
-  digitalWrite(BTN_3MIN_OUT_PIN, LOW);
+  digitalWrite(BTN_3MIN_OUT_PIN, HIGH);
   pinMode(BTN_3MIN_OUT_PIN, OUTPUT);
-  digitalWrite(BTN_5MIN_OUT_PIN, LOW);
+  digitalWrite(BTN_5MIN_OUT_PIN, HIGH);
   pinMode(BTN_5MIN_OUT_PIN, OUTPUT);
 
   // Initialize Display
@@ -198,6 +198,14 @@ void loop() {
   // 3. Handle Automated Cycle State Machine
   if (autoCycleRunning) {
     handleAutoCycleState();
+  }
+
+  // 4. Serial Command 's' to start
+  if (Serial.available() > 0) {
+    char cmd = Serial.read();
+    if ((cmd == 's' || cmd == 'S') && !autoCycleRunning) {
+      startAutoCycle();
+    }
   }
 }
 
@@ -339,12 +347,12 @@ void endTest() {
   autoCycleWaitStartMillis = millis();
 }
 
-// Simulates a momentary button press by pulsing an output pin HIGH
-// NOTE: SUT is Active High, so we Pulse HIGH from LOW
+// Simulates a momentary button press by pulsing an output pin LOW
+// NOTE: SUT is Active LOW (with pull-ups), so we Pulse LOW from HIGH
 void simulateButtonPulse(int pin) {
-  digitalWrite(pin, HIGH);
-  delay(BUTTON_PULSE_DURATION_MS);
   digitalWrite(pin, LOW);
+  delay(BUTTON_PULSE_DURATION_MS);
+  digitalWrite(pin, HIGH);
 }
 
 // Measures voltage on A0 using spec formula
