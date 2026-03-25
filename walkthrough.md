@@ -90,5 +90,12 @@ The test framework has also been adjusted to match the Active LOW configuration 
 -  digitalWrite(pin, LOW);
 +  digitalWrite(pin, LOW);
 +  delay(BUTTON_PULSE_DURATION_MS);
-+  digitalWrite(pin, HIGH);
-```
+---
+
+## Baud Rate & Duration Drift Fix (2026-03-25)
+
+The system was updated to synchronize communication at 115200 baud and minimize duration drift in longer tests.
+
+### Changes Made
+1. **Baud Rate**: Synchronized Test FW, SUT, and Serial Monitor to **115200 baud** using a consistent `BAUD_RATE` definition.
+2. **Validation Reporting**: Improved `rt_data_validation.py` to extract iteration data from the test framework's logs, ensuring error messages align with the specific test sequence being run.

@@ -7,7 +7,8 @@
 // Configuration & Pin Definitions
 // ==========================================
 
-// Display pins
+// --- Configuration ---
+#define BAUD_RATE 115200
 #define CLK_PIN 3
 #define DIO_PIN 5
 
@@ -87,7 +88,7 @@ void updateDisplay(int secondsRemaining);
 // Setup
 // ==========================================
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(BAUD_RATE);
   while (!Serial) {
     ; // Wait for serial port to connect.
   }
