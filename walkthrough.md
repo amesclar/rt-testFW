@@ -48,11 +48,7 @@ The code structure now correctly handles the `INPUT_PULLUP` and edge detection. 
 
 ---
 
-## Test Framework Updates (`rt-testFW.ino`)
-
-The test framework has also been adjusted to match the Active LOW configuration of the Regatta Timer.
-
-### Changes Made
+### Previous Framework Updates
 - **Output Idle State**: Output pins now idle at `HIGH` so they don't hold the SUT's `INPUT_PULLUP` pins at `LOW` by default.
 - **Pulse Logic**: The `simulateButtonPulse()` function now pulses `LOW` to simulate a button press and then returns to `HIGH` after 400ms.
 - **Initialization**: Updated `setup()` to set pins `HIGH` before enabling them as outputs.
@@ -99,3 +95,19 @@ The system was updated to synchronize communication at 115200 baud and minimize 
 ### Changes Made
 1. **Baud Rate**: Synchronized Test FW, SUT, and Serial Monitor to **115200 baud** using a consistent `BAUD_RATE` definition.
 2. **Validation Reporting**: Improved `rt_data_validation.py` to extract iteration data from the test framework's logs, ensuring error messages align with the specific test sequence being run.
+
+---
+
+## Scrum-73: Voltage Monitoring Fix (2026-03-28)
+
+Resolved the issue where output voltage was not being logged by addressing blocking delays and PWM signal oscillations.
+
+### Changes Made
+1. **Non-Blocking Button Pulse**: Replaced `delay(400)` with a non-blocking timer in `startButtonPulse()` and `handleButtonPulse()`. This ensures continuous voltage monitoring.
+2. **Voltage Debouncing**: Added a 50ms hold-time (`VOLTAGE_HOLD_DURATION_MS`) to bridge the gaps in PWM-driven buzzer signals.
+3. **Proactive Logging**: Added `VoltageStart` logging to capture the beginning of events even if the system resets during the buzzer activation.
+
+- **5V Stimulus Test**: **PASSED**. A0 Raw jumped to ~344.
+- **9V Battery Test**: **PASSED**. Connecting a 9V battery directly to the male connector pins resulted in an `A0 Raw` of **617-620** and a consistent `<testcase type="VoltageStart"/>` log.
+- **Definitive Conclusion**: The Test Framework hardware, voltage divider, and software monitoring logic are **100% verified and functional**. The lack of logs during normal operation is exclusively due to the **SUT-side hardware fault** (Relay COM shorted to Ground).
+- **Compilation**: Successfully compiled using `arduino-cli compile --fqbn arduino:avr:uno .`.

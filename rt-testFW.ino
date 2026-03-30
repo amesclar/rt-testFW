@@ -28,9 +28,11 @@
 #define VOLTAGE_MULTIPLIER 3.0
 #define VOLTAGE_REF 5.0
 #define ADC_RESOLUTION 1024.0
-#define VOLTAGE_LOG_THRESHOLD 1.0 // Volts
+#define VOLTAGE_LOG_THRESHOLD 1.0
 #define MIN_VOLTAGE_DURATION_MS                                                \
   10 // Minimum duration for logging a voltage event
+#define VOLTAGE_HOLD_DURATION_MS                                               \
+  50 // Duration to keep voltage high for PWM signals
 
 // Test Timing Configuration
 #define TEST_CYCLE_REPEAT 100      // Total iterations of the 4-test sequence
@@ -70,7 +72,15 @@ unsigned long autoCycleWaitStartMillis = 0;
 // Voltage Monitoring State Variables
 bool isVoltageHigh = false;
 unsigned long voltageHighStartTime = 0;
+unsigned long lastVoltageHighTime = 0; // Last time we saw a sample > threshold
 float voltageHighPeakValue = 0.0; // Track peak voltage during the high event
+bool voltageStartLogged = false; // Prevent multiple start logs for one event
+
+// Output Pulse State
+bool buttonPulseActive = false;
+int buttonPulsingPin = -1;
+unsigned long buttonPulseStartTime = 0;
+bool debugRawMode = false; // Flag for continuous ADC debug
 
 // ==========================================
 // Forward Declarations
@@ -80,7 +90,8 @@ void handleAutoCycleState();
 void startSpecificTest(int stepIndex);
 void updateRunningTest();
 void endTest();
-void simulateButtonPulse(int pin);
+void startButtonPulse(int pin);
+void handleButtonPulse();
 float measureVoltage();
 void updateDisplay(int secondsRemaining);
 
@@ -126,33 +137,46 @@ void loop() {
   float currentVoltage = measureVoltage();
 
   if (currentVoltage > VOLTAGE_LOG_THRESHOLD) {
+    lastVoltageHighTime = currentMillis; // Update the last sample time
     if (!isVoltageHigh) {
       // Transition detected: Voltage went from LOW to HIGH
       isVoltageHigh = true;
       voltageHighStartTime = currentMillis;
       voltageHighPeakValue = currentVoltage; // Initialize peak value
+      voltageStartLogged = false;
     } else {
-      // Voltage is still high, update peak if current is higher
+      // Voltage is already high, update peak if current is higher
       if (currentVoltage > voltageHighPeakValue) {
         voltageHighPeakValue = currentVoltage;
       }
     }
-  } else if (currentVoltage <= VOLTAGE_LOG_THRESHOLD && isVoltageHigh) {
-    // Transition detected: Voltage went from HIGH to LOW (Event ended)
-    isVoltageHigh = false;
-    unsigned long durationMs = currentMillis - voltageHighStartTime;
 
-    // Log the event if its duration meets the minimum threshold
-    if (durationMs >= MIN_VOLTAGE_DURATION_MS) {
+    // Proactive "Start" log to debug resets during the buzzer event
+    if (!voltageStartLogged) {
       Serial.print(F("<testcase classname=\"VoltageMonitor\" elapsedSec=\""));
-      // Use elapsedSeconds from the current running test
-      Serial.print(
-          elapsedSeconds); // Log elapsed seconds relative to current test start
-      Serial.print(F("\" durationMs=\""));
-      Serial.print(durationMs);
-      Serial.print(F("\" peakVoltage=\""));
-      Serial.print(voltageHighPeakValue, 2); // Log with 2 decimal places
-      Serial.println(F("\"/>"));
+      Serial.print(elapsedSeconds);
+      Serial.println(F("\" type=\"VoltageStart\"/>"));
+      voltageStartLogged = true;
+    }
+  } else if (isVoltageHigh) {
+    // Current sample is LOW, but we were in HIGH state.
+    // Check if the hold duration has expired (to bridge PWM gaps)
+    if (currentMillis - lastVoltageHighTime >= VOLTAGE_HOLD_DURATION_MS) {
+      // Transition detected: Voltage stayed LOW long enough (Event ended)
+      isVoltageHigh = false;
+      unsigned long totalEventDuration =
+          lastVoltageHighTime - voltageHighStartTime;
+
+      // Log the event if its effective duration meets the minimum threshold
+      if (totalEventDuration >= MIN_VOLTAGE_DURATION_MS) {
+        Serial.print(F("<testcase classname=\"VoltageMonitor\" elapsedSec=\""));
+        Serial.print(elapsedSeconds);
+        Serial.print(F("\" durationMs=\""));
+        Serial.print(totalEventDuration);
+        Serial.print(F("\" peakVoltage=\""));
+        Serial.print(voltageHighPeakValue, 2);
+        Serial.println(F("\" type=\"VoltageEnd\"/>"));
+      }
     }
   }
 
@@ -201,12 +225,31 @@ void loop() {
     handleAutoCycleState();
   }
 
+  // 4. Handle Output Pulse (Non-blocking)
+  if (buttonPulseActive) {
+    handleButtonPulse();
+  }
+
   // 4. Serial Command 's' to start
   if (Serial.available() > 0) {
     char cmd = Serial.read();
     if ((cmd == 's' || cmd == 'S') && !autoCycleRunning) {
       startAutoCycle();
     }
+    if (cmd == 'd' || cmd == 'D') {
+      debugRawMode = !debugRawMode;
+      if (debugRawMode) Serial.println(F("--- Raw Debug ON ---"));
+      else Serial.println(F("--- Raw Debug OFF ---"));
+    }
+  }
+
+  // 5. Raw Debug Continuous Print (Every 250ms)
+  static unsigned long lastDebugPrint = 0;
+  if (debugRawMode && (currentMillis - lastDebugPrint >= 250)) {
+    lastDebugPrint = currentMillis;
+    int raw = analogRead(VOLTAGE_SENSOR_PIN);
+    Serial.print(F("A0 Raw: "));
+    Serial.println(raw);
   }
 }
 
@@ -230,7 +273,9 @@ void startAutoCycle() {
   // Reset voltage state for the start of a new auto cycle
   isVoltageHigh = false;
   voltageHighStartTime = 0;
+  lastVoltageHighTime = 0;
   voltageHighPeakValue = 0.0;
+  voltageStartLogged = false;
 
   // Kick off the first test immediately
   startSpecificTest(autoCycleStep);
@@ -293,8 +338,8 @@ void startSpecificTest(int stepIndex) {
   Serial.print(duration);
   Serial.println(F("\"/>"));
 
-  // Simulate button press to trigger target device
-  simulateButtonPulse(pinToPulse);
+  // Initiate button press to trigger target device (Non-blocking)
+  startButtonPulse(pinToPulse);
 
   // Reset test timers
   testRunning = true;
@@ -303,10 +348,10 @@ void startSpecificTest(int stepIndex) {
   elapsedSeconds = 0; // Reset elapsedSeconds for the new test
   currentTestDurationTarget = duration;
 
-  // Reset voltage state for the start of a new individual test
-  isVoltageHigh = false;
-  voltageHighStartTime = 0;
-  voltageHighPeakValue = 0.0;
+  // Reset voltage peak but keep state if already high
+  float vNow = measureVoltage();
+  voltageHighPeakValue = (vNow > 0) ? vNow : 0.0;
+  voltageStartLogged = false;
 
   updateDisplay(duration - elapsedSeconds);
 }
@@ -350,10 +395,25 @@ void endTest() {
 
 // Simulates a momentary button press by pulsing an output pin LOW
 // NOTE: SUT is Active LOW (with pull-ups), so we Pulse LOW from HIGH
-void simulateButtonPulse(int pin) {
+// Starts a momentary button press pulse (Active LOW)
+void startButtonPulse(int pin) {
+  if (buttonPulseActive) {
+    // If a pulse is already active, finish it immediately before starting a new
+    // one
+    digitalWrite(buttonPulsingPin, HIGH);
+  }
+  buttonPulsingPin = pin;
+  buttonPulseActive = true;
+  buttonPulseStartTime = millis();
   digitalWrite(pin, LOW);
-  delay(BUTTON_PULSE_DURATION_MS);
-  digitalWrite(pin, HIGH);
+}
+
+// Monitors and ends the button pulse after specified duration
+void handleButtonPulse() {
+  if (millis() - buttonPulseStartTime >= BUTTON_PULSE_DURATION_MS) {
+    digitalWrite(buttonPulsingPin, HIGH);
+    buttonPulseActive = false;
+  }
 }
 
 // Measures voltage on A0 using spec formula
